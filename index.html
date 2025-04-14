@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>互动数学乐园</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --primary-color: #007bff;
+        --secondary-color: #6c757d;
+        --bg-light: #f8f9fa;
+        --bg-white: #ffffff;
+        --text-dark: #343a40;
+        --text-light: #f8f9fa;
+        --border-color: #dee2e6;
+        --shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        --shadow-md: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        --font-family-sans-serif: "Nunito", sans-serif;
+        --original-surface: #6495ED;
+        --new-surface: #fa8072;
+      }
+      body {
+        margin: 20px;
+        font-family: var(--font-family-sans-serif);
+        background-color: var(--bg-light);
+        color: var(--text-dark);
+        display: grid;
+        place-items: center;
+        min-height: 100vh;
+      }
+       .main-section-title {
+        color: var(--primary-color);
+        margin-bottom: 20px;
+        text-align: center;
+       }
+      .main-section {
+        text-align: left;
+        width: 100%;
+      }
+      .container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        padding: 20px;
+        max-width: 1200px;
+        width: 100%;
+        margin: 0 auto;
+        box-sizing: border-box;
+      }
+      h1 {
+        color: var(--primary-color);
+        margin-bottom: 10px;
+      }
+      p {
+        line-height: 1.6;
+        margin-bottom: 20px;
+      }
+      .grid-item {
+        background-color: var(--bg-white);
+        border-radius: 10px;
+        box-shadow: var(--shadow-sm);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        padding: 20px;
+      }
+      .grid-item:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-md);
+      }
+      h2 {
+        margin-top: 30px;
+        margin-bottom: 15px;
+        color: var(--secondary-color);
+      }
+      .entry-point {
+        background-color: var(--primary-color);
+        color: var(--text-light);
+        padding: 15px;
+        text-decoration: none;
+        border-radius: 8px;
+        transition: background-color 0.3s ease, box-shadow 0.3s ease;
+        box-shadow: var(--shadow-sm);
+        font-weight: 600;
+        display: block;
+        text-align: center;
+      }
+      .entry-point:hover {
+        background-color: #0056b3;
+        box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+      }
+
+      .grid-item-description {
+        margin-top: 10px;
+        color: var(--secondary-color);
+        font-size: 0.9rem;
+        line-height: 1.4;
+      }
+      .grid-item small {
+        display: block;
+        margin-top: 5px;
+        color: var(--secondary-color);
+        font-size: 0.9em;
+      }
+    </style>
+  </head>
+  <body>
+    <h1 class="main-section-title">互动数学乐园 - 立体切割与表面积可视化教学工具</h1>
+    <main class="main-section container">
+      <div class="grid-item">
+        <a href="cube-join.html" class="entry-point">正方体拼接演示</a>
+        <div class="grid-item-description">
+          演示如何将多个正方体拼接在一起，并计算总表面积，并支持点击高亮。
+        </div>
+      </div>
+      <div class="grid-item">
+        <a href="cube-cute.html" class="entry-point">正方体切割演示</a>
+        <div class="grid-item-description">
+          演示如何将一个正方体切割成8个小正方体，并展示表面积的变化。
+        </div>
+      </div>
+      <div class="grid-item">
+        <a href="cuboid-cute.html" class="entry-point">长方体切割演示</a>
+        <div class="grid-item-description">
+          演示如何根据你的输入，将长方体切割成多个小长方体，并计算表面积的变化。
+        </div>
+      </div>
+      <div class="grid-item">
+        <a href="cuboid-cut-cuboid.html" class="entry-point">长方体挖孔演示</a>
+        <div class="grid-item-description">
+          演示如何将一个长方体中间进行挖孔，然后计算剩余区域的表面积和剩余的体积
+        </div>
+      </div>
+      <div class="grid-item">
+        <a href="cuboid-join.html" class="entry-point">长方体拼接演示</a>
+        <div class="grid-item-description">
+          演示如何将多个长方体拼接在一起，并计算总表面积，并支持点击高亮。
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

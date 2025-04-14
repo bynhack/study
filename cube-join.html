@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>正方体堆叠演示 (连接线 - 修复)</title> <!-- Updated Title -->
+    <!-- Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- CSS remains identical --- */
+         :root {
+            --primary-color: #007bff; --secondary-color: #6c757d; --bg-light: #f8f9fa;
+            --bg-white: #ffffff; --text-dark: #343a40; --text-light: #f8f9fa;
+            --border-color: #dee2e6; --shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            --shadow-md: 0 0.5rem 1rem rgba(0, 0, 0, 0.15); --font-family-sans-serif: 'Nunito', sans-serif;
+            --cube-color: #6495ED; --join-line-color: #dc3545; --input-bg: #e9ecef;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: var(--font-family-sans-serif); background-color: var(--bg-light); color: var(--text-dark); display: flex; height: 100vh; overflow: hidden; }
+        #info-panel { width: 600px; flex-shrink: 0; background-color: var(--bg-white); padding: 25px; overflow-y: auto; box-shadow: var(--shadow-md); z-index: 10; display: flex; flex-direction: column; }
+        #info-panel h2 { margin-top: 0; color: var(--primary-color); font-weight: 700; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 20px; }
+        #info-panel h3 { margin-top: 20px; margin-bottom: 10px; color: var(--text-dark); font-weight: 600; font-size: 1.1em; }
+        #info-panel p { line-height: 1.6; margin-bottom: 12px; font-size: 0.95em; }
+        #info-panel b, #info-panel strong { font-weight: 700; }
+        .highlight { color: var(--join-line-color); font-weight: 700; background-color: #fdf5f6; padding: 2px 5px; border-radius: 4px; }
+        hr { border: 0; height: 1px; background-color: var(--border-color); margin: 25px 0; }
+        .input-group { margin-bottom: 20px; }
+        .input-group label { display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.9em; color: var(--secondary-color); }
+        .input-group input[type="number"] { width: 100%; padding: 9px 12px; border: 1px solid var(--border-color); border-radius: 4px; font-family: inherit; font-size: 1em; background-color: var(--input-bg); }
+        .input-group input:focus { outline: none; border-color: var(--primary-color); background-color: var(--bg-white); box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25); }
+        #results-area { margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color); }
+        #results-area p { margin-bottom: 8px; font-size: 1em; }
+        #stats span { display: inline-block; min-width: 40px; text-align: right; font-weight: bold; }
+        #actionButton { display: block; width: 100%; padding: 12px 20px; margin-top: auto; background-color: var(--secondary-color); color: var(--text-light); border: none; border-radius: 6px; cursor: pointer; font-size: 1em; font-weight: 600; text-align: center; transition: background-color 0.2s ease, box-shadow 0.2s ease; box-shadow: var(--shadow-sm); }
+        #actionButton:hover { background-color: #5a6268; box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1); }
+        #container { flex-grow: 1; position: relative; min-width: 0; background-color: var(--bg-light); cursor: pointer; }
+        canvas { display: block; }
+        #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 20; display: flex; justify-content: center; align-items: center; width: 60px; height: 60px; }
+        .spinner { border: 5px solid var(--bg-light); border-top: 5px solid var(--primary-color); border-radius: 50%; width: 100%; height: 100%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #error-message { color: red; font-weight: bold; margin-top: 10px; font-size: 0.9em; }
+        #interaction-info { font-size: 0.85em; color: var(--secondary-color); margin-top: 5px; padding: 5px; background-color: var(--input-bg); border-radius: 3px; text-align: center;}
+        .color-key span { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: middle; border: 1px solid rgba(0,0,0,0.1); }
+        .cube-color-bg { background-color: var(--cube-color); }
+        .join-line-color-bg { background-color: var(--join-line-color); }
+    </style>
+</head>
+<body>
+    <!-- HTML Structure remains identical -->
+     <div id="info-panel">
+        <h2>正方体堆叠与表面积</h2>
+        <div id="inputs-area">
+            <h3>1. 初始状态</h3>
+             <p>开始时有一个<span class="color-key"><span class="cube-color-bg"></span>蓝色</span>正方体。</p>
+            <div class="input-group">
+                <label for="cubeSide">正方体边长</label>
+                <input type="number" id="cubeSide" value="2" min="0.1" step="0.1">
+            </div>
+             <div id="error-message"></div>
+        </div>
+
+        <div id="explanation-area">
+            <h3>2. 堆叠过程</h3>
+             <p>点击场景中任意正方体的一个面，将在该面上添加一个新的相同正方体。连接处会用<span class="color-key"><span class="join-line-color-bg"></span>红色</span>线条标示。</p>
+            <hr>
+             <h3>3. 关键原理</h3>
+             <p>每添加一个正方体并使其与现有结构的一个面接触时：</p>
+             <ul>
+                 <li>新添加的正方体贡献了 6 个面的面积。</li>
+                 <li>但接触的 <b>2</b> 个面变为了内部表面。</li>
+                 <li>因此，每次添加操作使总表面积净增加 <b>4</b> 个面的面积。</li>
+             </ul>
+             <p>总表面积 = (初始方块面积) + (添加方块数 × 4 × 单面面积)</p>
+             <hr>
+             <h3>4. 计算结果</h3>
+             <div id="results-area" >
+                 <p id="stats">方块数量: <span id="cubeCount">--</span> | 连接面数: <span id="joinCount">--</span></p>
+                 <p>单个方块表面积: <strong id="singleArea">--</strong></p>
+                 <p>总独立表面积: <strong id="totalSeparateArea">--</strong></p>
+                 <p>因连接<strong style="color: var(--join-line-color);">减少</strong>的总面积: <strong id="totalLostArea">--</strong></p>
+                 <p>最终结构表面积: <strong id="finalArea">--</strong></p>
+             </div>
+             <hr>
+             <h3>5. 可视化说明</h3>
+             <p id="interaction-info"><small>点击空闲面添加方块。拖动旋转，滚轮缩放。</small></p>
+        </div>
+
+        <button id="actionButton">重置场景</button>
+    </div>
+
+    <div id="container">
+         <div id="loading"><div class="spinner"></div></div>
+    </div>
+
+    <!-- Three.js Library -->
+    <script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }</script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        // REMOVED: import { EdgesGeometry } from 'three/addons/geometries/EdgesGeometry.js';
+
+        // --- Variables remain the same ---
+        let scene, camera, renderer, controls;
+        let cubes = [];
+        let edgeLines = [];
+        let numJoinedFaces = 0;
+        const clock = new THREE.Clock();
+        const raycaster = new THREE.Raycaster();
+        const pointer = new THREE.Vector2();
+        let currentSideLength = 0;
+        let activeAddition = null;
+        const animationDuration = 0.6;
+        const addStartDistanceFactor = 1.5;
+        const cubeBaseColor = new THREE.Color(0x6495ED);
+        const joinLineColor = new THREE.Color(0xdc3545);
+        const cubeMaterialTemplate = new THREE.MeshStandardMaterial({ color: cubeBaseColor, roughness: 0.6, metalness: 0.2, side: THREE.FrontSide });
+        const lineMaterial = new THREE.LineBasicMaterial({ color: joinLineColor, linewidth: 2, depthTest: false });
+
+        // --- DOM Elements remain the same ---
+        const loadingElement = document.getElementById('loading');
+        const container = document.getElementById('container');
+        const cubeSideInput = document.getElementById('cubeSide');
+        const actionButton = document.getElementById('actionButton');
+        const singleAreaEl = document.getElementById('singleArea');
+        const totalSeparateAreaEl = document.getElementById('totalSeparateArea');
+        const totalLostAreaEl = document.getElementById('totalLostArea');
+        const finalAreaEl = document.getElementById('finalArea');
+        const cubeCountEl = document.getElementById('cubeCount');
+        const joinCountEl = document.getElementById('joinCount');
+        const errorEl = document.getElementById('error-message');
+
+
+        // --- Functions ---
+        function init() { /* ... (no change) ... */
+             scene = new THREE.Scene();
+             scene.background = new THREE.Color(getComputedStyle(document.body).getPropertyValue('--bg-light').trim());
+             camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 100);
+             renderer = new THREE.WebGLRenderer({ antialias: true });
+             renderer.setSize(container.clientWidth, container.clientHeight);
+             renderer.setPixelRatio(window.devicePixelRatio);
+             container.appendChild(renderer.domElement);
+             const ambientLight = new THREE.AmbientLight(0xffffff, 0.7); scene.add(ambientLight);
+             const directionalLight1 = new THREE.DirectionalLight(0xffffff, 0.8); directionalLight1.position.set(1, 1.5, 1).normalize().multiplyScalar(10); scene.add(directionalLight1);
+             const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.4); directionalLight2.position.set(-1, -1, -0.5).normalize().multiplyScalar(10); scene.add(directionalLight2);
+             controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.dampingFactor = 0.05;
+             window.addEventListener('resize', onWindowResize, false);
+             actionButton.addEventListener('click', resetScene);
+             renderer.domElement.addEventListener('pointerdown', onPointerDown, false);
+             loadingElement.style.display = 'none';
+             animate();
+             resetScene();
+         }
+        function validateInput() { /* ... (no change) ... */
+             errorEl.textContent = ''; const side = parseFloat(cubeSideInput.value);
+             if (isNaN(side) || side <= 0) { errorEl.textContent = '边长必须是正数。'; return null; }
+             if (cubes.length > 0 && side !== currentSideLength) { errorEl.textContent = '请先重置场景再更改边长。'; return null; }
+             return side;
+         }
+        function resetScene() { /* ... (no change needed from previous version with lines) ... */
+             actionButton.disabled = true; loadingElement.style.display = 'flex'; activeAddition = null;
+             cubes.forEach(cube => { scene.remove(cube); if (cube.geometry) cube.geometry.dispose(); if (cube.material) cube.material.dispose(); }); cubes = [];
+             edgeLines.forEach(line => { scene.remove(line); if (line.geometry) line.geometry.dispose(); }); edgeLines = [];
+             numJoinedFaces = 0;
+             const side = validateInput(); if (side === null) { loadingElement.style.display = 'none'; actionButton.disabled = false; updateCalculationDisplay(); return; }
+             currentSideLength = side;
+             const initialCube = createCubeMesh(new THREE.Vector3(0, 0, 0), currentSideLength); scene.add(initialCube); cubes.push(initialCube);
+             const initialLines = createEdgeLines(initialCube.geometry, initialCube.position, initialCube.quaternion); scene.add(initialLines); edgeLines.push(initialLines);
+             updateCalculationDisplay(); updateCamera(); loadingElement.style.display = 'none'; actionButton.disabled = false;
+         }
+        function createCubeMesh(position, side) { /* ... (no change) ... */
+             const cubeGeo = new THREE.BoxGeometry(side, side, side); const cubeMaterial = cubeMaterialTemplate.clone(); const cube = new THREE.Mesh(cubeGeo, cubeMaterial);
+             cube.position.copy(position); cube.userData.isCube = true; cube.userData.center = position.clone(); return cube;
+         }
+
+        // --- Helper to Create Edge Lines (Use THREE.EdgesGeometry) ---
+        function createEdgeLines(geometry, position, quaternion) {
+             // Use THREE.EdgesGeometry directly from the core library
+             const edges = new THREE.EdgesGeometry(geometry);
+             // Use THREE.LineSegments from the core library
+             const lines = new THREE.LineSegments(edges, lineMaterial);
+             lines.position.copy(position);
+             lines.quaternion.copy(quaternion);
+             lines.renderOrder = 1;
+             return lines;
+        }
+
+        function checkPositionOccupied(targetPos, tolerance = 0.1) { /* ... (no change) ... */
+             for (const cube of cubes) { if (cube.position.distanceTo(targetPos) < tolerance) { return true; } } return false;
+         }
+        function onPointerDown(event) { /* ... (no change) ... */
+             if (activeAddition) return; const side = currentSideLength; if (side <= 0) return;
+             const rect = renderer.domElement.getBoundingClientRect(); pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1; pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+             raycaster.setFromCamera(pointer, camera); const intersects = raycaster.intersectObjects(cubes);
+             if (intersects.length > 0) {
+                 const intersect = intersects[0]; const clickedCube = intersect.object; const faceNormal = intersect.face.normal.clone();
+                 const targetPos = clickedCube.position.clone().addScaledVector(faceNormal, side);
+                 if (!checkPositionOccupied(targetPos, side * 0.5)) {
+                     const startPos = targetPos.clone().addScaledVector(faceNormal, side * addStartDistanceFactor); const newCubeMesh = createCubeMesh(startPos, side); startAddAnimation(newCubeMesh, startPos, targetPos);
+                 } else { console.log("Position occupied, ignoring click."); }
+             }
+         }
+        function updateCalculationDisplay() { /* ... (no change) ... */
+             const numCubes = cubes.length; const side = currentSideLength;
+             if (side <= 0 || numCubes === 0) { cubeCountEl.textContent = '0'; joinCountEl.textContent = '0'; singleAreaEl.textContent = '0.00'; totalSeparateAreaEl.textContent = '0.00'; totalLostAreaEl.textContent = '0.00'; finalAreaEl.textContent = '0.00'; return; }
+             const faceArea = side * side; const singleCubeArea = 6 * faceArea; const totalSeparateArea = numCubes * singleCubeArea;
+             const totalLostArea = numJoinedFaces * 2 * faceArea; const finalArea = totalSeparateArea - totalLostArea;
+             cubeCountEl.textContent = numCubes.toString(); joinCountEl.textContent = numJoinedFaces.toString(); singleAreaEl.textContent = singleCubeArea.toFixed(2);
+             totalSeparateAreaEl.textContent = totalSeparateArea.toFixed(2); totalLostAreaEl.textContent = totalLostArea.toFixed(2); finalAreaEl.textContent = finalArea.toFixed(2);
+         }
+        function updateCamera() { /* ... (no change) ... */
+             if (cubes.length === 0) { camera.position.set(5, 4, 7); controls.target.set(0,0,0); controls.update(); return; }
+             const box = new THREE.Box3(); cubes.forEach(cube => box.expandByObject(cube)); const center = new THREE.Vector3(); const size = new THREE.Vector3(); box.getCenter(center); box.getSize(size);
+             const maxSize = Math.max(size.x, size.y, size.z); const cameraDist = maxSize * 2.0;
+             camera.position.set(center.x + cameraDist * 0.6, center.y + cameraDist * 0.5, center.z + cameraDist * 0.8); camera.lookAt(center);
+             controls.target.copy(center); controls.minDistance = maxSize * 0.5; controls.maxDistance = maxSize * 5; controls.update();
+         }
+        function startAddAnimation(cubeMesh, startPos, targetPos) { /* ... (no change) ... */
+             if (activeAddition) return; scene.add(cubeMesh);
+             activeAddition = { mesh: cubeMesh, startPos: startPos.clone(), targetPos: targetPos.clone(), startTime: clock.getElapsedTime() };
+         }
+        function updateAddAnimation() { /* ... (no change needed from previous version with lines) ... */
+            if (!activeAddition) return; const elapsedTime = clock.getElapsedTime() - activeAddition.startTime; let progress = Math.min(elapsedTime / animationDuration, 1); progress = progress * progress * (3 - 2 * progress);
+            activeAddition.mesh.position.lerpVectors(activeAddition.startPos, activeAddition.targetPos, progress);
+            if (elapsedTime >= animationDuration) {
+                const finishedMesh = activeAddition.mesh; finishedMesh.position.copy(activeAddition.targetPos);
+                const newLines = createEdgeLines(finishedMesh.geometry, finishedMesh.position, finishedMesh.quaternion); scene.add(newLines); edgeLines.push(newLines);
+                cubes.push(finishedMesh); numJoinedFaces++; updateCalculationDisplay(); updateCamera();
+                activeAddition = null;
+            }
+        }
+        function animate() { requestAnimationFrame(animate); controls.update(); updateAddAnimation(); renderer.render(scene, camera); }
+        function onWindowResize() { camera.aspect = container.clientWidth / container.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(container.clientWidth, container.clientHeight); }
+
+        // --- Start ---
+        try { init(); }
+        catch (error) { console.error("Initialization failed:", error); loadingElement.textContent = "加载失败: " + error.message; loadingElement.style.color = "red"; }
+
+    </script>
+</body>
+</html>

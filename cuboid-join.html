@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>长方体堆叠演示 (占用提示-修复)</title> <!-- Updated Title -->
+    <!-- Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- CSS using unified blue theme --- */
+        :root {
+            --primary-color: #007bff; --secondary-color: #6c757d; --bg-light: #f8f9fa;
+            --bg-white: #ffffff; --text-dark: #343a40; --text-light: #f8f9fa;
+            --border-color: #dee2e6; --shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            --shadow-md: 0 0.5rem 1rem rgba(0, 0, 0, 0.15); --font-family-sans-serif: 'Nunito', sans-serif;
+            --cube-color: #6495ED; --join-line-color: #dc3545; --input-bg: #e9ecef;
+            --error-indicator-color: #ff0000; /* Bright red for error */
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: var(--font-family-sans-serif); background-color: var(--bg-light); color: var(--text-dark); display: flex; height: 100vh; overflow: hidden; }
+        #info-panel { width: 500px; flex-shrink: 0; background-color: var(--bg-white); padding: 25px; overflow-y: auto; box-shadow: var(--shadow-md); z-index: 10; display: flex; flex-direction: column; }
+        #info-panel h2 { margin-top: 0; color: var(--primary-color); font-weight: 700; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px; }
+        #info-panel h3 { margin-top: 15px; margin-bottom: 8px; color: var(--text-dark); font-weight: 600; font-size: 1.05em; }
+        #info-panel p { line-height: 1.6; margin-bottom: 10px; font-size: 0.9em; }
+        #info-panel b, #info-panel strong { font-weight: 700; }
+        .highlight { color: var(--join-line-color); font-weight: 700; background-color: #fdf5f6; padding: 1px 4px; border-radius: 3px; }
+        hr { border: 0; height: 1px; background-color: var(--border-color); margin: 15px 0; }
+        .input-section { border: 1px solid var(--border-color); border-radius: 5px; padding: 10px 15px; margin-bottom: 15px; background-color: var(--bg-light); }
+        .input-section h3 { margin-top: 0; margin-bottom: 10px; font-size: 1em; color: var(--primary-color); }
+        .input-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .input-group label { display: block; font-weight: 600; margin-bottom: 3px; font-size: 0.8em; color: var(--secondary-color); }
+        .input-group input[type="number"] { width: 100%; padding: 6px 8px; border: 1px solid var(--border-color); border-radius: 4px; font-family: inherit; font-size: 0.9em; background-color: var(--bg-white); }
+        .input-group input:focus { outline: none; border-color: var(--primary-color); background-color: var(--bg-white); box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25); }
+        .input-group small { font-size: 0.75em; color: var(--secondary-color); display: block; margin-top: 3px; }
+        #results-area { margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color); }
+        #results-area h3 { margin-bottom: 15px; }
+        #results-area p { margin-bottom: 6px; font-size: 0.95em; }
+        #stats span { display: inline-block; min-width: 45px; text-align: right; font-weight: bold; }
+        .calc-step { margin-left: 15px; font-size: 0.85em; color: var(--secondary-color); }
+        #actionButton { display: block; width: 100%; padding: 12px 20px; margin-top: auto; background-color: var(--secondary-color); color: var(--text-light); border: none; border-radius: 6px; cursor: pointer; font-size: 1em; font-weight: 600; text-align: center; transition: background-color 0.2s ease, box-shadow 0.2s ease; box-shadow: var(--shadow-sm); }
+        #actionButton:hover { background-color: #5a6268; box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1); }
+        #container { flex-grow: 1; position: relative; min-width: 0; background-color: var(--bg-light); cursor: pointer; }
+        canvas { display: block; }
+        #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 20; display: flex; justify-content: center; align-items: center; width: 60px; height: 60px; }
+        .spinner { border: 5px solid var(--bg-light); border-top: 5px solid var(--primary-color); border-radius: 50%; width: 100%; height: 100%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #error-message { color: red; font-weight: bold; margin-top: 10px; font-size: 0.9em; min-height: 1.2em; }
+        #interaction-info { font-size: 0.85em; color: var(--secondary-color); margin-top: 5px; padding: 5px; background-color: var(--input-bg); border-radius: 3px; text-align: center;}
+        .color-key span { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: middle; border: 1px solid rgba(0,0,0,0.1); }
+        .cube-color-bg { background-color: var(--cube-color); }
+        .join-line-color-bg { background-color: var(--join-line-color); }
+    </style>
+</head>
+<body>
+    <div id="info-panel">
+        <h2>长方体堆叠与表面积</h2>
+
+        <div class="input-section">
+            <h3>初始长方体尺寸</h3>
+             <div class="input-grid">
+                <div class="input-group"> <label for="initialL">长度 (X)</label> <input type="number" id="initialL" value="3" min="0.1" step="0.1"> </div>
+                <div class="input-group"> <label for="initialW">宽度 (Y)</label> <input type="number" id="initialW" value="2" min="0.1" step="0.1"> </div>
+                <div class="input-group"> <label for="initialH">高度 (Z)</label> <input type="number" id="initialH" value="2" min="0.1" step="0.1"> </div>
+            </div>
+             <small>(仅在“重置场景”时使用)</small>
+        </div>
+
+         <div class="input-section">
+            <h3>下一个长方体尺寸</h3>
+             <div class="input-grid">
+                <div class="input-group"> <label for="nextL">长度 (X)</label> <input type="number" id="nextL" value="2" min="0.1" step="0.1"> </div>
+                <div class="input-group"> <label for="nextW">宽度 (Y)</label> <input type="number" id="nextW" value="2" min="0.1" step="0.1"> </div>
+                <div class="input-group"> <label for="nextH">高度 (Z)</label> <input type="number" id="nextH" value="2" min="0.1" step="0.1"> </div>
+            </div>
+             <small>(点击添加时使用此尺寸)</small>
+        </div>
+         <div id="error-message"></div>
+
+        <div id="explanation-area">
+            <h3>堆叠过程 & 原理</h3>
+             <p>点击已有长方体的<span class="color-key"><span class="cube-color-bg"></span>蓝色</span>面，即可在旁边添加设定尺寸的新长方体。连接处用<span class="color-key"><span class="join-line-color-bg"></span>红色</span>线条标示。</p>
+             <p>每次添加时：</p>
+             <ul>
+                 <li>理论上，表面积先增加新长方体的完整表面积。</li>
+                 <li>但由于接触，实际表面积会 <span class="highlight">减少</span> <b>2 倍</b>的接触面面积。</li>
+                 <li>接触面面积 = 两个接触面中重叠部分的面积。</li>
+             </ul>
+            <hr>
+             <h3>计算过程 & 结果</h3>
+             <div id="results-area" >
+                 <p id="stats">长方体数量: <span id="cuboidCount">--</span> | 连接次数: <span id="joinCount">--</span></p>
+                 <p>总独立表面积: <strong id="totalSeparateArea">--</strong></p>
+                 <p class="calc-step"> = 对所有长方体求和 [ 2 × (长×宽 + 长×高 + 宽×高) ] </p>
+                 <p>因连接<strong style="color: var(--join-line-color);">减少</strong>的总面积: <strong id="totalLostArea">--</strong></p>
+                 <p class="calc-step"> = 对所有连接求和 [ 2 × 接触面积 ]</p>
+                 <p>最终结构表面积: <strong id="finalArea">--</strong></p>
+                 <p class="calc-step"> = (总独立表面积) - (总减少面积)</p>
+             </div>
+             <hr>
+             <p id="interaction-info"><small>点击空闲面添加。拖动旋转，滚轮缩放。</small></p>
+        </div>
+
+        <button id="actionButton">重置场景</button>
+    </div>
+
+    <div id="container">
+         <div id="loading"><div class="spinner"></div></div>
+    </div>
+
+    <!-- Three.js Library -->
+    <script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }</script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- Variables ---
+        let scene, camera, renderer, controls;
+        let cuboids = [];
+        let edgeLines = [];
+        let numJoins = 0;
+        let totalLostAreaAccumulated = 0;
+        const clock = new THREE.Clock();
+        const raycaster = new THREE.Raycaster();
+        const pointer = new THREE.Vector2();
+        let activeAddition = null;
+        let errorIndicatorTimeout = null; // Timeout ID for error indicator
+
+        const animationDuration = 0.6;
+        const addStartDistanceFactor = 1.0;
+        const cubeBaseColor = new THREE.Color(0x6495ED);
+        const joinLineColor = new THREE.Color(0xdc3545);
+        const errorIndicatorColor = new THREE.Color(0xff0000); // Red for indicator
+
+        const cuboidMaterialTemplate = new THREE.MeshStandardMaterial({ color: cubeBaseColor, roughness: 0.6, metalness: 0.2, side: THREE.FrontSide });
+        const lineMaterial = new THREE.LineBasicMaterial({ color: joinLineColor, linewidth: 2, depthTest: false });
+        const errorMaterial = new THREE.MeshBasicMaterial({ color: errorIndicatorColor, transparent: true, opacity: 0.6, depthTest: false });
+
+        // --- DOM Elements ---
+        const loadingElement = document.getElementById('loading'); const container = document.getElementById('container');
+        const initialLInput = document.getElementById('initialL'); const initialWInput = document.getElementById('initialW'); const initialHInput = document.getElementById('initialH');
+        const nextLInput = document.getElementById('nextL'); const nextWInput = document.getElementById('nextW'); const nextHInput = document.getElementById('nextH');
+        const actionButton = document.getElementById('actionButton'); const totalSeparateAreaEl = document.getElementById('totalSeparateArea'); const totalLostAreaEl = document.getElementById('totalLostArea');
+        const finalAreaEl = document.getElementById('finalArea'); const cuboidCountEl = document.getElementById('cuboidCount'); const joinCountEl = document.getElementById('joinCount');
+        const errorEl = document.getElementById('error-message');
+
+
+        // --- Functions ---
+        function init() {
+             scene = new THREE.Scene(); scene.background = new THREE.Color(getComputedStyle(document.body).getPropertyValue('--bg-light').trim());
+             camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 200); renderer = new THREE.WebGLRenderer({ antialias: true });
+             renderer.setSize(container.clientWidth, container.clientHeight); renderer.setPixelRatio(window.devicePixelRatio); container.appendChild(renderer.domElement);
+             const ambientLight = new THREE.AmbientLight(0xffffff, 0.7); scene.add(ambientLight);
+             const directionalLight1 = new THREE.DirectionalLight(0xffffff, 0.8); directionalLight1.position.set(1, 1.5, 1).normalize().multiplyScalar(10); scene.add(directionalLight1);
+             const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.4); directionalLight2.position.set(-1, -1, -0.5).normalize().multiplyScalar(10); scene.add(directionalLight2);
+             controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.dampingFactor = 0.05;
+             window.addEventListener('resize', onWindowResize, false); actionButton.addEventListener('click', resetScene); renderer.domElement.addEventListener('pointerdown', onPointerDown, false);
+             loadingElement.style.display = 'none'; animate(); resetScene();
+        }
+
+        function validateDimsInput(lInput, wInput, hInput, inputName) {
+             errorEl.textContent = ''; const L = parseFloat(lInput.value); const W = parseFloat(wInput.value); const H = parseFloat(hInput.value);
+             if (isNaN(L) || L <= 0 || isNaN(W) || W <= 0 || isNaN(H) || H <= 0) { errorEl.textContent = `${inputName}尺寸必须是正数。`; return null; } return { L, W, H };
+        }
+
+        function resetScene() {
+             actionButton.disabled = true; loadingElement.style.display = 'flex'; activeAddition = null;
+             cuboids.forEach(c => { scene.remove(c); if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+             edgeLines.forEach(l => { scene.remove(l); if (l.geometry) l.geometry.dispose(); });
+             cuboids = []; edgeLines = []; numJoins = 0; totalLostAreaAccumulated = 0;
+             const initialDims = validateDimsInput(initialLInput, initialWInput, initialHInput, "初始"); if (initialDims === null) { loadingElement.style.display = 'none'; actionButton.disabled = false; updateCalculationDisplay(); return; }
+             const initialCuboid = createCuboidMesh(new THREE.Vector3(0, 0, 0), initialDims); scene.add(initialCuboid); cuboids.push(initialCuboid);
+             const initialLines = createEdgeLines(initialCuboid.geometry, initialCuboid.position, initialCuboid.quaternion); scene.add(initialLines); edgeLines.push(initialLines);
+             updateCalculationDisplay(); updateCamera(); loadingElement.style.display = 'none'; actionButton.disabled = false;
+        }
+
+        function createCuboidMesh(position, dims) {
+             const cuboidGeo = new THREE.BoxGeometry(dims.L, dims.W, dims.H); const cuboidMaterial = cuboidMaterialTemplate.clone(); const cuboid = new THREE.Mesh(cuboidGeo, cuboidMaterial);
+             cuboid.position.copy(position); cuboid.userData.isCuboid = true; cuboid.userData.center = position.clone(); cuboid.userData.dims = { ...dims }; return cuboid;
+        }
+
+        function createEdgeLines(geometry, position, quaternion) {
+             const edges = new THREE.EdgesGeometry(geometry); const lines = new THREE.LineSegments(edges, lineMaterial);
+             lines.position.copy(position); lines.quaternion.copy(quaternion); lines.renderOrder = 1; return lines;
+        }
+
+        // --- CORRECTED AABB Check Position ---
+        function checkPositionOccupied(targetPos, newDims) {
+            const newMin = { x: targetPos.x - newDims.L / 2, y: targetPos.y - newDims.W / 2, z: targetPos.z - newDims.H / 2 };
+            const newMax = { x: targetPos.x + newDims.L / 2, y: targetPos.y + newDims.W / 2, z: targetPos.z + newDims.H / 2 };
+            const tolerance = 1e-6; // Small tolerance for floating point
+
+            for (const cuboid of cuboids) {
+                const existingPos = cuboid.position;
+                const existingDims = cuboid.userData.dims;
+                const existingMin = { x: existingPos.x - existingDims.L / 2, y: existingPos.y - existingDims.W / 2, z: existingPos.z - existingDims.H / 2 };
+                const existingMax = { x: existingPos.x + existingDims.L / 2, y: existingPos.y + existingDims.W / 2, z: existingPos.z + existingDims.H / 2 };
+
+                const overlapX = (newMax.x > existingMin.x + tolerance) && (newMin.x < existingMax.x - tolerance);
+                const overlapY = (newMax.y > existingMin.y + tolerance) && (newMin.y < existingMax.y - tolerance);
+                const overlapZ = (newMax.z > existingMin.z + tolerance) && (newMin.z < existingMax.z - tolerance);
+
+                if (overlapX && overlapY && overlapZ) {
+                    console.log(`Overlap detected: New@(${targetPos.x.toFixed(2)},${targetPos.y.toFixed(2)},${targetPos.z.toFixed(2)}) vs Existing@(${existingPos.x.toFixed(2)},${existingPos.y.toFixed(2)},${existingPos.z.toFixed(2)})`);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // --- Handle Pointer Down (with error indicator) ---
+        function onPointerDown(event) {
+            if (activeAddition) return;
+            const nextDims = validateDimsInput(nextLInput, nextWInput, nextHInput, "下一个");
+            if (nextDims === null) return;
+
+            errorEl.textContent = ''; // Clear text error first
+            if (errorIndicatorTimeout) { clearTimeout(errorIndicatorTimeout); errorIndicatorTimeout = null; /* Should remove visual indicator too */ }
+
+            const rect = renderer.domElement.getBoundingClientRect();
+            pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(pointer, camera);
+            const intersects = raycaster.intersectObjects(cuboids);
+
+            if (intersects.length > 0) {
+                const intersect = intersects[0];
+                const clickedCuboid = intersect.object;
+                const faceNormal = intersect.face.normal.clone();
+                const clickedDims = clickedCuboid.userData.dims;
+
+                let offsetDistance = 0;
+                if (Math.abs(faceNormal.x) > 0.5) { offsetDistance = (clickedDims.L / 2) + (nextDims.L / 2); }
+                else if (Math.abs(faceNormal.y) > 0.5) { offsetDistance = (clickedDims.W / 2) + (nextDims.W / 2); }
+                else { offsetDistance = (clickedDims.H / 2) + (nextDims.H / 2); }
+                const targetPos = clickedCuboid.position.clone().addScaledVector(faceNormal, offsetDistance);
+
+                if (!checkPositionOccupied(targetPos, nextDims)) { // Use corrected check
+                    // --- Add Cuboid ---
+                    const startPos = targetPos.clone().addScaledVector(faceNormal, Math.max(nextDims.L, nextDims.W, nextDims.H) * addStartDistanceFactor);
+                    const newCuboidMesh = createCuboidMesh(startPos, nextDims);
+                    startAddAnimation(newCuboidMesh, startPos, targetPos, clickedDims, nextDims, faceNormal);
+                } else {
+                    // --- Position Occupied: Show Indicator ---
+                    console.log("Position occupied (AABB Check), showing indicator.");
+                    errorEl.textContent = '该位置已被占用。';
+                    const indicatorSize = Math.min(nextDims.L, nextDims.W, nextDims.H) * 0.25;
+                    const indicatorGeo = new THREE.SphereGeometry(indicatorSize, 16, 8);
+                    // Give the indicator a name to find it if timeout is cleared early
+                    indicatorMesh = new THREE.Mesh(indicatorGeo, errorMaterial);
+                    indicatorMesh.name = "errorIndicator"; // Name it
+                    indicatorMesh.position.copy(targetPos);
+                    indicatorMesh.renderOrder = 2; scene.add(indicatorMesh);
+                    errorIndicatorTimeout = setTimeout(() => {
+                         const existingIndicator = scene.getObjectByName("errorIndicator");
+                         if (existingIndicator) {
+                            scene.remove(existingIndicator);
+                            if (existingIndicator.geometry) existingIndicator.geometry.dispose();
+                            // Material is shared, no need to dispose here
+                         }
+                         errorIndicatorTimeout = null;
+                    }, 1000);
+                }
+            }
+        }
+
+
+        function updateCalculationDisplay() {
+             const numCuboids = cuboids.length; if (numCuboids === 0) { cuboidCountEl.textContent = '0'; joinCountEl.textContent = '0'; totalSeparateAreaEl.textContent = '0.00'; totalLostAreaEl.textContent = '0.00'; finalAreaEl.textContent = '0.00'; return; }
+             let totalSeparateArea = 0; cuboids.forEach(cuboid => { const dims = cuboid.userData.dims; totalSeparateArea += 2 * (dims.L * dims.W + dims.L * dims.H + dims.W * dims.H); });
+             const finalArea = totalSeparateArea - totalLostAreaAccumulated;
+             cuboidCountEl.textContent = numCuboids.toString(); joinCountEl.textContent = numJoins.toString(); totalSeparateAreaEl.textContent = totalSeparateArea.toFixed(2);
+             totalLostAreaEl.textContent = totalLostAreaAccumulated.toFixed(2); finalAreaEl.textContent = finalArea.toFixed(2);
+         }
+
+        function updateCamera() {
+             if (cuboids.length === 0) { camera.position.set(5, 4, 7); controls.target.set(0,0,0); controls.update(); return; }
+             const box = new THREE.Box3(); cuboids.forEach(c => box.expandByObject(c)); const center = new THREE.Vector3(); const size = new THREE.Vector3(); box.getCenter(center); box.getSize(size);
+             const maxSize = Math.max(size.x, size.y, size.z); const cameraDist = maxSize * 2.0;
+             camera.position.set(center.x + cameraDist * 0.6, center.y + cameraDist * 0.5, center.z + cameraDist * 0.8); camera.lookAt(center);
+             controls.target.copy(center); controls.minDistance = maxSize * 0.5; controls.maxDistance = maxSize * 5; controls.update();
+         }
+
+        function startAddAnimation(mesh, startPos, targetPos, clickedDims, nextDims, faceNormal) {
+             if (activeAddition) return; scene.add(mesh);
+             activeAddition = { mesh: mesh, startPos: startPos.clone(), targetPos: targetPos.clone(), startTime: clock.getElapsedTime(), clickedDims: clickedDims, nextDims: nextDims, faceNormal: faceNormal.clone() };
+         }
+
+        function updateAddAnimation() {
+             if (!activeAddition) return; const elapsedTime = clock.getElapsedTime() - activeAddition.startTime; let progress = Math.min(elapsedTime / animationDuration, 1); progress = progress * progress * (3 - 2 * progress);
+             activeAddition.mesh.position.lerpVectors(activeAddition.startPos, activeAddition.targetPos, progress);
+             if (elapsedTime >= animationDuration) {
+                 const finishedMesh = activeAddition.mesh; finishedMesh.position.copy(activeAddition.targetPos);
+                 const newLines = createEdgeLines(finishedMesh.geometry, finishedMesh.position, finishedMesh.quaternion); scene.add(newLines); edgeLines.push(newLines);
+                 cuboids.push(finishedMesh); numJoins++;
+                 let contactArea = 0; const d1 = activeAddition.clickedDims; const d2 = activeAddition.nextDims; const n = activeAddition.faceNormal;
+                 if (Math.abs(n.x) > 0.5) { contactArea = Math.min(d1.W, d2.W) * Math.min(d1.H, d2.H); } else if (Math.abs(n.y) > 0.5) { contactArea = Math.min(d1.L, d2.L) * Math.min(d1.H, d2.H); } else { contactArea = Math.min(d1.L, d2.L) * Math.min(d1.W, d2.W); }
+                 const lostAreaThisJoin = 2 * contactArea; totalLostAreaAccumulated += lostAreaThisJoin;
+                 updateCalculationDisplay(); updateCamera(); activeAddition = null;
+             }
+         }
+
+        function animate() { requestAnimationFrame(animate); controls.update(); updateAddAnimation(); renderer.render(scene, camera); }
+        function onWindowResize() { camera.aspect = container.clientWidth / container.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(container.clientWidth, container.clientHeight); }
+
+        // --- Start ---
+        try { init(); }
+        catch (error) { console.error("Initialization failed:", error); loadingElement.textContent = "加载失败: " + error.message; loadingElement.style.color = "red"; }
+
+    </script>
+</body>
+</html>
