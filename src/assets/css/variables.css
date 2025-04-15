@@ -1,0 +1,29 @@
+:root {
+  /* 基础颜色系统 */
+  --primary-color: #4a6cd4;
+  --secondary-color: #f39c12;
+  --accent-color: #e74c3c;
+  --bg-light: #f8f9fa;
+  --bg-white: #ffffff;
+  --text-dark: #343a40;
+  --text-light: #f8f9fa;
+  --border-color: #dee2e6;
+  
+  /* 阴影 */
+  --shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  --shadow-md: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  
+  /* 字体 */
+  --font-family-sans-serif: 'Nunito', sans-serif;
+  
+  /* 演示颜色 */
+  --original-surface: #6495ED;
+  --new-surface: #FA8072;
+  
+  /* 面板尺寸 */
+  --control-panel-width: 280px;
+  --concept-panel-width: 320px;
+  --border-radius: 10px;
+  --panel-padding: 20px;
+  --panel-spacing: 15px;
+} 
