@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>交互式基础形状学习</title>
+    <style>
+        /* --- 全局样式 (与之前类似，略作调整) --- */
+        :root {
+            --primary-color: #4a90e2; /* 主题蓝 */
+            --secondary-color: #f5a623; /* 强调橙 */
+            --handle-color: #e91e63; /* 拖动点颜色 */
+            --background-color: #f4f7f6;
+            --panel-background: #ffffff;
+            --text-color: #333333;
+            --light-text-color: #666666;
+            --border-color: #e0e0e0;
+            --font-family: 'Helvetica Neue', Arial, 'Microsoft YaHei', sans-serif;
+            --border-radius: 8px;
+            --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        body {
+            font-family: var(--font-family);
+            margin: 0;
+            padding: 0;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding-top: 30px;
+            box-sizing: border-box;
+            user-select: none; /* 防止拖动时选中文字 */
+        }
+
+        .container {
+            display: flex;
+            width: 90%;
+            max-width: 1200px;
+            background-color: var(--panel-background);
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            overflow: hidden;
+        }
+
+        .column {
+            padding: 25px;
+            box-sizing: border-box;
+            height: auto;
+        }
+
+        .controls {
+            flex: 1;
+            border-right: 1px solid var(--border-color);
+            background-color: #fafafa;
+        }
+
+        .demo-area {
+            flex: 2;
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 450px;
+            position: relative;
+            overflow: hidden; /* 隐藏可能超出边界的handle */
+        }
+
+        .explanation {
+            flex: 1.5;
+            background-color: #fdfdfd;
+        }
+
+        h2 {
+            color: var(--primary-color);
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 1.4em;
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 8px;
+        }
+
+        .controls button {
+            display: block;
+            width: 100%;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 1em;
+            cursor: pointer;
+            text-align: left;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+        }
+        .controls button:hover { background-color: #3a7bc8; }
+        .controls button:active { background-color: #2a5d9a; transform: scale(0.98); }
+        .controls button.active { background-color: var(--secondary-color); font-weight: bold; }
+
+        #shape-svg {
+            width: 90%; /* 稍微增大SVG区域占比 */
+            max-width: 350px; /* 允许稍大尺寸 */
+            height: auto;
+            aspect-ratio: 1 / 1;
+            cursor: default; /* SVG背景默认光标 */
+            overflow: visible; /* 确保handle可见 */
+        }
+
+        #initial-prompt {
+            position: absolute;
+            color: var(--light-text-color);
+            font-style: italic;
+            text-align: center;
+        }
+
+        .explanation h3 {
+            color: var(--secondary-color);
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        .explanation p, .explanation ul {
+            color: var(--text-color);
+            line-height: 1.7;
+            margin-bottom: 15px;
+        }
+        .explanation ul { padding-left: 20px; }
+        .explanation li { margin-bottom: 8px; }
+
+        /* 实时面积显示 */
+        #area-display {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #eef5fd;
+            border-left: 4px solid var(--primary-color);
+            border-radius: 4px;
+        }
+        #area-display strong {
+            color: var(--primary-color);
+            font-size: 1.1em;
+        }
+        #shape-area {
+            font-weight: bold;
+            color: var(--secondary-color);
+        }
+
+        /* SVG形状和Handle样式 */
+        .shape {
+            stroke-width: 2; /* 稍微细一点 */
+            stroke: #555;
+            fill-opacity: 0.8; /* 半透明填充 */
+        }
+        .handle {
+            fill: var(--handle-color);
+            stroke: #fff;
+            stroke-width: 1.5;
+            cursor: move; /* 'move' 或 'grab' */
+            transition: r 0.2s ease; /* 半径过渡 */
+        }
+        .handle:hover {
+            r: 7; /* 鼠标悬停时变大 */
+        }
+
+        @media (max-width: 768px) {
+            .container { flex-direction: column; width: 95%; }
+            .column { border-right: none; border-bottom: 1px solid var(--border-color); }
+            .explanation { border-bottom: none; }
+            .demo-area { min-height: 300px; }
+            #shape-svg { width: 70%; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- 左栏：控制面板 -->
+        <div class="column controls">
+            <h2>选择形状</h2>
+            <button data-shape="square">正方形</button>
+            <button data-shape="rectangle">长方形</button>
+            <button data-shape="triangle">三角形</button>
+            <button data-shape="parallelogram">平行四边形</button>
+            <button data-shape="trapezoid">梯形</button>
+        </div>
+
+        <!-- 中栏：演示区域 -->
+        <div class="column demo-area">
+            <div id="initial-prompt">请从左边选择一个形状 😊</div>
+            <svg id="shape-svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet">
+                <!-- SVG 形状和 Handle 将在这里动态生成 -->
+            </svg>
+        </div>
+
+        <!-- 右栏：讲解区域 -->
+        <div class="column explanation">
+            <h2>形状知识</h2>
+            <div id="explanation-content">
+                <p>这里会显示你选择的形状的介绍哦！</p>
+            </div>
+            <div id="area-display" style="display: none;">
+                <strong>面积计算:</strong>
+                <p>当前形状的面积大约是 <span id="shape-area">?</span> 。</p>
+                <small>(面积是估算值，基于图形像素)</small>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const shapeButtons = document.querySelectorAll('.controls button');
+        const svgContainer = document.getElementById('shape-svg');
+        const explanationContent = document.getElementById('explanation-content');
+        const initialPrompt = document.getElementById('initial-prompt');
+        const areaDisplay = document.getElementById('area-display');
+        const shapeAreaSpan = document.getElementById('shape-area');
+
+        let currentShape = null;
+        let draggedElement = null;
+        let offset = { x: 0, y: 0 }; // 鼠标点击位置相对于 handle 中心的偏移
+        let svgPoint = svgContainer.createSVGPoint(); // 用于坐标转换
+
+        // 将屏幕坐标转换为SVG坐标
+        function getSVGPoint(event) {
+            const pt = svgPoint;
+            // 处理触摸事件和鼠标事件
+            const clientX = event.touches ? event.touches[0].clientX : event.clientX;
+            const clientY = event.touches ? event.touches[0].clientY : event.clientY;
+            pt.x = clientX;
+            pt.y = clientY;
+            const svgRect = svgContainer.getBoundingClientRect();
+            const matrix = svgContainer.getScreenCTM().inverse();
+            return pt.matrixTransform(matrix);
+        }
+
+        // --- 拖动逻辑 ---
+        function startDrag(event) {
+            // event.target 是触发事件的元素 (handle)
+            if (event.target.classList.contains('handle')) {
+                draggedElement = event.target;
+                const currentPos = getSVGPoint(event);
+                // 计算偏移，使拖动更自然（从圆心开始拖动）
+                offset.x = currentPos.x - parseFloat(draggedElement.getAttribute('cx'));
+                offset.y = currentPos.y - parseFloat(draggedElement.getAttribute('cy'));
+
+                // 添加全局监听器以捕获SVG外的移动和抬起
+                document.addEventListener('mousemove', drag);
+                document.addEventListener('touchmove', drag, { passive: false }); // Handle touch
+                document.addEventListener('mouseup', endDrag);
+                document.addEventListener('touchend', endDrag); // Handle touch end
+                 event.preventDefault(); // Prevent default drag behavior or text selection
+                 if (event.type === 'touchmove') {
+                    event.preventDefault(); // Prevent scrolling on touch devices
+                }
+            }
+        }
+
+        function drag(event) {
+            if (draggedElement) {
+                event.preventDefault(); // 阻止默认滚动等行为
+                const coord = getSVGPoint(event);
+                const newX = coord.x - offset.x;
+                const newY = coord.y - offset.y;
+
+                // 调用当前形状的更新函数
+                if (currentShape && shapesData[currentShape]?.update) {
+                    shapesData[currentShape].update(draggedElement, newX, newY);
+                    // 实时更新面积显示
+                    updateAreaDisplay();
+                }
+            }
+        }
+
+        function endDrag() {
+            draggedElement = null;
+            // 移除全局监听器
+            document.removeEventListener('mousemove', drag);
+            document.removeEventListener('touchmove', drag);
+            document.removeEventListener('mouseup', endDrag);
+            document.removeEventListener('touchend', endDrag);
+        }
+
+        // --- 面积计算与显示 ---
+        function updateAreaDisplay() {
+            if (currentShape && shapesData[currentShape]?.calculateArea) {
+                const area = shapesData[currentShape].calculateArea();
+                shapeAreaSpan.textContent = area.toFixed(1); // 保留一位小数
+                areaDisplay.style.display = 'block';
+            } else {
+                areaDisplay.style.display = 'none';
+            }
+        }
+
+        // --- 形状数据、生成、更新和面积计算 ---
+        const shapesData = {
+            square: {
+                init: () => {
+                    // 固定左上角 (A), 拖动右下角 (C)
+                    const A = { x: 50, y: 50 };
+                    let side = 100;
+                    const B = { x: A.x + side, y: A.y };
+                    const C = { x: A.x + side, y: A.y + side };
+                    const D = { x: A.x, y: A.y + side };
+
+                    svgContainer.innerHTML = `
+                        <rect id="shape-geom" class="shape" x="${A.x}" y="${A.y}" width="${side}" height="${side}" fill="#4CAF50" />
+                        <circle id="handle-c" class="handle" cx="${C.x}" cy="${C.y}" r="5" data-point="C"/>
+                        <!-- 可以添加其他辅助 handle，但只让一个可拖动来保持正方形 -->
+                    `;
+                    document.getElementById('handle-c').addEventListener('mousedown', startDrag);
+                    document.getElementById('handle-c').addEventListener('touchstart', startDrag); // Handle touch start
+                },
+                update: (handle, newX, newY) => {
+                    const shape = document.getElementById('shape-geom');
+                    const handleC = document.getElementById('handle-c');
+                    const A = { x: parseFloat(shape.getAttribute('x')), y: parseFloat(shape.getAttribute('y')) };
+
+                    // 计算新的边长，取X和Y变化量中的较大值，并确保为正
+                    let newSide = Math.max(newX - A.x, newY - A.y);
+                    newSide = Math.max(5, newSide); // 最小边长
+
+                    // 更新矩形
+                    shape.setAttribute('width', newSide);
+                    shape.setAttribute('height', newSide);
+
+                    // 更新拖动点 C 的位置
+                    const C = { x: A.x + newSide, y: A.y + newSide };
+                    handleC.setAttribute('cx', C.x);
+                    handleC.setAttribute('cy', C.y);
+                },
+                calculateArea: () => {
+                    const shape = document.getElementById('shape-geom');
+                    const side = parseFloat(shape.getAttribute('width')); // 宽高相等
+                    // 将SVG单位下的面积转换为更易理解的“像素平方”感觉，可以乘以一个比例因子
+                    const scaleFactor = 1; // 简单示例，不缩放
+                    return side * side * scaleFactor;
+                },
+                explanation: `<h3>正方形 (Square)</h3>...` // (内容同前)
+            },
+            rectangle: {
+                init: () => {
+                     // 固定左上角 (A), 拖动右下角 (C)
+                    const A = { x: 30, y: 60 };
+                    let width = 140;
+                    let height = 80;
+                    const C = { x: A.x + width, y: A.y + height };
+
+                    svgContainer.innerHTML = `
+                        <rect id="shape-geom" class="shape" x="${A.x}" y="${A.y}" width="${width}" height="${height}" fill="#2196F3" />
+                        <circle id="handle-c" class="handle" cx="${C.x}" cy="${C.y}" r="5" data-point="C"/>
+                    `;
+                    document.getElementById('handle-c').addEventListener('mousedown', startDrag);
+                     document.getElementById('handle-c').addEventListener('touchstart', startDrag);
+                },
+                update: (handle, newX, newY) => {
+                    const shape = document.getElementById('shape-geom');
+                    const handleC = document.getElementById('handle-c');
+                    const A = { x: parseFloat(shape.getAttribute('x')), y: parseFloat(shape.getAttribute('y')) };
+
+                    let newWidth = Math.max(5, newX - A.x); // 最小宽度
+                    let newHeight = Math.max(5, newY - A.y); // 最小高度
+
+                    shape.setAttribute('width', newWidth);
+                    shape.setAttribute('height', newHeight);
+
+                    handleC.setAttribute('cx', A.x + newWidth);
+                    handleC.setAttribute('cy', A.y + newHeight);
+                },
+                calculateArea: () => {
+                    const shape = document.getElementById('shape-geom');
+                    const width = parseFloat(shape.getAttribute('width'));
+                    const height = parseFloat(shape.getAttribute('height'));
+                    return width * height;
+                },
+                explanation: `<h3>长方形 (Rectangle)</h3>...` // (内容同前)
+            },
+            triangle: {
+                 // 拖动三个顶点 A, B, C
+                init: () => {
+                    const points = [{x: 100, y: 30}, {x: 170, y: 170}, {x: 30, y: 170}]; // A, B, C
+                    svgContainer.innerHTML = `
+                        <polygon id="shape-geom" class="shape" points="${points.map(p => `${p.x},${p.y}`).join(' ')}" fill="#FFC107" />
+                        <circle id="handle-a" class="handle" cx="${points[0].x}" cy="${points[0].y}" r="5" data-index="0"/>
+                        <circle id="handle-b" class="handle" cx="${points[1].x}" cy="${points[1].y}" r="5" data-index="1"/>
+                        <circle id="handle-c" class="handle" cx="${points[2].x}" cy="${points[2].y}" r="5" data-index="2"/>
+                    `;
+                    document.querySelectorAll('.handle').forEach(h => {
+                         h.addEventListener('mousedown', startDrag);
+                         h.addEventListener('touchstart', startDrag);
+                    });
+                },
+                update: (handle, newX, newY) => {
+                    const shape = document.getElementById('shape-geom');
+                    const index = parseInt(handle.dataset.index);
+                    const pointsStr = shape.getAttribute('points').split(' ');
+                    const points = pointsStr.map(p => {
+                        const coords = p.split(',');
+                        return { x: parseFloat(coords[0]), y: parseFloat(coords[1]) };
+                    });
+
+                    // 更新被拖动点的位置
+                    points[index] = { x: Math.max(0, Math.min(200, newX)), y: Math.max(0, Math.min(200, newY)) }; // 限制在viewBox内
+
+                    // 更新 handle 和 polygon
+                    handle.setAttribute('cx', points[index].x);
+                    handle.setAttribute('cy', points[index].y);
+                    shape.setAttribute('points', points.map(p => `${p.x},${p.y}`).join(' '));
+                },
+                calculateArea: () => {
+                    // Shoelace Formula (鞋带公式) 计算任意多边形面积
+                    const shape = document.getElementById('shape-geom');
+                    const pointsStr = shape.getAttribute('points').split(' ');
+                    const points = pointsStr.map(p => {
+                        const coords = p.split(',');
+                        return { x: parseFloat(coords[0]), y: parseFloat(coords[1]) };
+                    });
+                    let area = 0;
+                    let j = points.length - 1;
+                    for (let i = 0; i < points.length; i++) {
+                        area += (points[j].x + points[i].x) * (points[j].y - points[i].y);
+                        j = i; // j is previous vertex to i
+                    }
+                    return Math.abs(area / 2);
+                },
+                explanation: `<h3>三角形 (Triangle)</h3>...` // (内容同前)
+            },
+             parallelogram: {
+                // 简化：固定左下角(A)，拖动右下角(B)改底边，拖动左上角(D)改高度和倾斜
+                init: () => {
+                    let A = { x: 20, y: 150 };
+                    let B = { x: 140, y: 150 }; // 右下
+                    let D = { x: 40, y: 50 };  // 左上
+                    let C = { x: B.x + (D.x - A.x), y: D.y }; // 右上 C = B + D - A
+
+                    svgContainer.innerHTML = `
+                        <polygon id="shape-geom" class="shape" points="${A.x},${A.y} ${B.x},${B.y} ${C.x},${C.y} ${D.x},${D.y}" fill="#9C27B0" />
+                        <circle id="handle-b" class="handle" cx="${B.x}" cy="${B.y}" r="5" data-point="B"/>
+                        <circle id="handle-d" class="handle" cx="${D.x}" cy="${D.y}" r="5" data-point="D"/>
+                    `;
+                    document.getElementById('handle-b').addEventListener('mousedown', startDrag);
+                    document.getElementById('handle-d').addEventListener('mousedown', startDrag);
+                     document.getElementById('handle-b').addEventListener('touchstart', startDrag);
+                     document.getElementById('handle-d').addEventListener('touchstart', startDrag);
+                },
+                update: (handle, newX, newY) => {
+                    const shape = document.getElementById('shape-geom');
+                    const points = shape.getAttribute('points').split(' ').map(p => { const c=p.split(','); return {x: parseFloat(c[0]), y: parseFloat(c[1])}; });
+                    let [A, B, C, D] = points; // 获取当前顶点
+                    const handleB = document.getElementById('handle-b');
+                    const handleD = document.getElementById('handle-d');
+
+                    if (handle.dataset.point === 'B') { // 拖动B (右下)
+                        B.x = Math.max(A.x + 10, newX); // B不能跑到A左边
+                        B.y = A.y; // 保持底边水平
+                        C.x = B.x + (D.x - A.x); // 更新C的x坐标
+                        // C.y = D.y; // C的y坐标随D变化
+
+                    } else if (handle.dataset.point === 'D') { // 拖动D (左上)
+                        D.x = newX;
+                        D.y = Math.min(A.y - 10, newY); // D不能跑到A下面
+                        C.y = D.y; // 更新C的y坐标
+                        C.x = B.x + (D.x - A.x); // 更新C的x坐标
+                    }
+
+                     // 限制在 viewBox 内 (简单处理)
+                    B.x = Math.max(0, Math.min(200, B.x));
+                    D.x = Math.max(0, Math.min(200, D.x));
+                    D.y = Math.max(0, Math.min(200, D.y));
+                    C.x = Math.max(0, Math.min(200, C.x));
+                    C.y = Math.max(0, Math.min(200, C.y));
+
+
+                    // 更新 handles
+                    handleB.setAttribute('cx', B.x);
+                    handleB.setAttribute('cy', B.y);
+                    handleD.setAttribute('cx', D.x);
+                    handleD.setAttribute('cy', D.y);
+
+                    // 更新 polygon
+                    shape.setAttribute('points', `${A.x},${A.y} ${B.x},${B.y} ${C.x},${C.y} ${D.x},${D.y}`);
+                },
+                calculateArea: () => {
+                     const shape = document.getElementById('shape-geom');
+                     const points = shape.getAttribute('points').split(' ').map(p => { const c=p.split(','); return {x: parseFloat(c[0]), y: parseFloat(c[1])}; });
+                     const [A, B, C, D] = points;
+                     const base = Math.abs(B.x - A.x);
+                     const height = Math.abs(A.y - D.y); // 因为假设底边水平，高就是y坐标差
+                     return base * height;
+                },
+                explanation: `<h3>平行四边形 (Parallelogram)</h3>...` // (内容同前)
+            },
+            trapezoid: {
+                 // 简化：固定底边y坐标，拖动上底左右顶点(C,D)，下底左右顶点(A,B)
+                 init: () => {
+                    let A = { x: 20, y: 150 }; // 左下
+                    let B = { x: 180, y: 150 }; // 右下
+                    let C = { x: 150, y: 50 }; // 右上
+                    let D = { x: 50, y: 50 };  // 左上
+
+                    svgContainer.innerHTML = `
+                        <polygon id="shape-geom" class="shape" points="${A.x},${A.y} ${B.x},${B.y} ${C.x},${C.y} ${D.x},${D.y}" fill="#E91E63" />
+                        <circle id="handle-a" class="handle" cx="${A.x}" cy="${A.y}" r="5" data-point="A"/>
+                        <circle id="handle-b" class="handle" cx="${B.x}" cy="${B.y}" r="5" data-point="B"/>
+                        <circle id="handle-c" class="handle" cx="${C.x}" cy="${C.y}" r="5" data-point="C"/>
+                        <circle id="handle-d" class="handle" cx="${D.x}" cy="${D.y}" r="5" data-point="D"/>
+                    `;
+                     document.querySelectorAll('.handle').forEach(h => {
+                         h.addEventListener('mousedown', startDrag);
+                         h.addEventListener('touchstart', startDrag);
+                     });
+                },
+                update: (handle, newX, newY) => {
+                    const shape = document.getElementById('shape-geom');
+                    const points = shape.getAttribute('points').split(' ').map(p => { const c=p.split(','); return {x: parseFloat(c[0]), y: parseFloat(c[1])}; });
+                    let [A, B, C, D] = points;
+                    const pointId = handle.dataset.point;
+                    const handleElement = document.getElementById(`handle-${pointId.toLowerCase()}`);
+
+                    const topY = D.y; // 上底 Y 坐标 (固定)
+                    const bottomY = A.y; // 下底 Y 坐标 (固定)
+
+                    // 更新对应顶点X坐标，Y坐标固定为上底或下底
+                    if (pointId === 'A') A.x = newX;
+                    else if (pointId === 'B') B.x = newX;
+                    else if (pointId === 'C') C.x = newX;
+                    else if (pointId === 'D') D.x = newX;
+
+                    // 确保底边顶点不交叉，上底顶点不交叉 (简单处理)
+                    if (A.x > B.x - 10) A.x = B.x - 10;
+                    if (B.x < A.x + 10) B.x = A.x + 10;
+                    if (D.x > C.x - 10) D.x = C.x - 10;
+                    if (C.x < D.x + 10) C.x = D.x + 10;
+
+                    // 限制在 viewBox 内
+                    [A, B, C, D].forEach(p => {
+                        p.x = Math.max(0, Math.min(200, p.x));
+                    });
+
+                    // 更新 Handle 位置 (仅X变化)
+                    handleElement.setAttribute('cx', newX);
+                    // handleElement.setAttribute('cy', pointId === 'A' || pointId === 'B' ? bottomY : topY); // Y不变
+
+
+                    // 更新 polygon
+                    shape.setAttribute('points', `${A.x},${A.y} ${B.x},${B.y} ${C.x},${C.y} ${D.x},${D.y}`);
+                },
+                calculateArea: () => {
+                     const shape = document.getElementById('shape-geom');
+                     const points = shape.getAttribute('points').split(' ').map(p => { const c=p.split(','); return {x: parseFloat(c[0]), y: parseFloat(c[1])}; });
+                     const [A, B, C, D] = points;
+                     const base1 = Math.abs(B.x - A.x); // 下底
+                     const base2 = Math.abs(C.x - D.x); // 上底
+                     const height = Math.abs(A.y - D.y); // 高度
+                     return (base1 + base2) * height / 2;
+                },
+                explanation: `<h3>梯形 (Trapezoid)</h3>...` // (内容同前)
+            }
+            // ... (可以继续添加其他形状)
+        };
+
+        // 填充讲解内容 (之前忘了放回去)
+        shapesData.square.explanation = `
+            <h3>正方形 (Square)</h3>
+            <p>拖动右下角的点点，看看正方形怎么变！</p>
+            <ul>
+                <li>它有 <strong>4</strong> 条边，并且这 <strong>4</strong> 条边都一样长。</li>
+                <li>它有 <strong>4</strong> 个角，而且这 <strong>4</strong> 个角都是直角。</li>
+                <li>对边是互相平行的。</li>
+            </ul>`;
+         shapesData.rectangle.explanation = `
+            <h3>长方形 (Rectangle)</h3>
+            <p>拖动右下角的点点，可以改变它的长和宽！</p>
+            <ul>
+                <li>它也有 <strong>4</strong> 条边和 <strong>4</strong> 个直角。</li>
+                <li>它只有<strong>对边</strong>的长度是相等的。</li>
+                <li>对边也是互相平行的。</li>
+            </ul>`;
+        shapesData.triangle.explanation = `
+            <h3>三角形 (Triangle)</h3>
+            <p>拖动它的三个顶点，可以创造出各种各样的三角形！</p>
+            <ul>
+                <li>它由 <strong>3</strong> 条边组成。</li>
+                <li>它有 <strong>3</strong> 个角。</li>
+                <li>试试看能不能拼出一个直角三角形？</li>
+            </ul>`;
+        shapesData.parallelogram.explanation = `
+            <h3>平行四边形 (Parallelogram)</h3>
+            <p>拖动上面的点可以改变形状，拖动右下角的点改变底边长度。</p>
+            <ul>
+                <li>它有 <strong>4</strong> 条边，<strong>对边</strong>互相平行并且长度相等。</li>
+                <li>它有 <strong>4</strong> 个角，<strong>对角</strong>的大小是相等的。</li>
+                <li>它的角不一定是直角哦！</li>
+            </ul>`;
+        shapesData.trapezoid.explanation = `
+            <h3>梯形 (Trapezoid)</h3>
+            <p>拖动上下底边两端的点点，改变梯形的形状！</p>
+            <ul>
+                <li>它有 <strong>4</strong> 条边。</li>
+                <li>它<strong>只有一组</strong>对边是互相平行的（上边和下边）。</li>
+                <li>另外两条边（腰）可能一样长，也可能不一样长。</li>
+            </ul>`;
+
+
+        // 更新显示内容的函数 (增强版)
+        function updateDisplay(shapeName) {
+            const data = shapesData[shapeName];
+            if (!data) return;
+
+            currentShape = shapeName; // 更新当前形状标识
+
+            // 隐藏初始提示
+            if (initialPrompt) {
+                initialPrompt.style.display = 'none';
+            }
+
+            // 生成 SVG 形状和 Handles
+            if (data.init) {
+                data.init();
+            } else {
+                svgContainer.innerHTML = ''; // 清空无初始化方法的形状
+            }
+
+
+            // 更新讲解区域
+            explanationContent.innerHTML = data.explanation;
+
+            // 更新并显示面积区域
+            updateAreaDisplay();
+
+            // 更新按钮的选中状态
+            shapeButtons.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.shape === shapeName);
+            });
+        }
+
+        // 为每个按钮添加点击事件监听器
+        shapeButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const shape = button.dataset.shape;
+                updateDisplay(shape);
+            });
+        });
+
+        // 页面加载时不显示任何形状，保留提示
+    </script>
+
+</body>
+</html>

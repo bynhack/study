@@ -31,6 +31,11 @@ const routes = [
     path: '/cuboid-join',
     name: 'cuboidJoin',
     component: () => import('../views/CuboidJoinView.vue')
+  },
+  {
+    path: '/areas',
+    name: 'areas',
+    component: () => import('../views/AreasView.vue')
   }
 ]
 
